@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+  <meta charset="UTF-8">
+  <title>Maze Cheese Escape</title>
+  <style>
+    body {
+      margin: 0;
+      background: radial-gradient(circle at top, #263238, #0d1117);
+      color: white;
+      font-family: Arial, sans-serif;
+      text-align: center;
+    }
+
+    h1 {
+      margin: 18px 0 8px;
+    }
+
+    #info {
+      font-size: 20px;
+      margin: 8px;
+    }
+
+    #message {
+      font-size: 20px;
+      font-weight: bold;
+      color: #ffd166;
+      margin: 8px;
+      min-height: 28px;
+    }
+
+    button {
+      padding: 12px 24px;
+      margin: 10px;
+      font-size: 17px;
+      font-weight: bold;
+      border: none;
+      border-radius: 10px;
+      background: #ffb703;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: #ffd166;
+    }
+
+    #game {
+      width: 660px;
+      height: 660px;
+      margin: 15px auto 30px;
+      display: grid;
+      grid-template-columns: repeat(15, 44px);
+      grid-template-rows: repeat(15, 44px);
+      background: #111;
+      border: 8px solid #e0e0e0;
+      box-shadow: 0 20px 50px rgba(0,0,0,0.6);
+    }
+
+    .cell {
+      width: 44px;
+      height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 26px;
+      box-sizing: border-box;
+    }
+
+    .wall {
+      background: linear-gradient(135deg, #4b5563, #1f2937);
+      border: 1px solid #111827;
+    }
+
+    .floor {
+      background: #f1f5c8;
+      border: 1px solid rgba(0,0,0,0.08);
+    }
+
+    .player {
+      font-size: 30px;
+      filter: drop-shadow(0 2px 2px rgba(0,0,0,0.4));
+    }
+
+    .mouse {
+      font-size: 30px;
+      filter: drop-shadow(0 2px 2px rgba(0,0,0,0.4));
+    }
+
+    .cheese {
+      font-size: 25px;
+    }
+
+    .instructions {
+      opacity: 0.9;
+      margin-bottom: 5px;
+    }
+
+    @media (max-width: 720px) {
+      #game {
+        width: 90vw;
+        height: 90vw;
+        grid-template-columns: repeat(15, 6vw);
+        grid-template-rows: repeat(15, 6vw);
+      }
+
+      .cell {
+        width: 6vw;
+        height: 6vw;
+        font-size: 20px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <h1>Maze Cheese Escape</h1>
+  <div id="info">Τυριά: <span id="cheeseCount">0</span> / <span id="totalCheese">0</span></div>
+  <div id="message">Μάζεψε όλα τα τυριά πριν σε πιάσει το ποντίκι!</div>
+
+  <button onclick="startGame()">Έναρξη / Restart</button>
+  <p class="instructions">Χειρισμός: βελάκια ↑ ↓ ← →</p>
+
+  <div id="game"></div>
+
+  <script>
+    const game = document.getElementById("game");
+    const cheeseCountText = document.getElementById("cheeseCount");
+    const totalCheeseText = document.getElementById("totalCheese");
+    const message = document.getElementById("message");
+
+    const maze = [
+      "###############",
+      "#P....#.......#",
+      "#.###.#.#####.#",
+      "#...#.#.....#.#",
+      "###.#.#####.#.#",
+      "#...#.....#...#",
+      "#.#####.#.###.#",
+      "#.....#.#.....#",
+      "#####.#.#####.#",
+      "#.....#.....#.#",
+      "#.#########.#.#",
+      "#.....#.....#.#",
+      "#.###.#.#####.#",
+      "#...C.......M.#",
+      "###############"
+    ];
+
+    let player = { x: 1, y: 1 };
+    let mouse = { x: 13, y: 13 };
+    let cheeses = [];
+    let collected = 0;
+    let totalCheese = 0;
+    let running = false;
+    let mouseTimer = null;
+
+    const extraCheese = [
+      {x: 5, y: 1},
+      {x: 11, y: 3},
+      {x: 1, y: 5},
+      {x: 7, y: 7},
+      {x: 13, y: 7},
+      {x: 3, y: 11},
+      {x: 9, y: 11},
+      {x: 4, y: 13}
+    ];
+
+    function startGame() {
+      player = { x: 1, y: 1 };
+      mouse = { x: 13, y: 13 };
+      cheeses = [...extraCheese, {x: 4, y: 13}];
+      collected = 0;
+      totalCheese = cheeses.length;
+      running = true;
+
+      cheeseCountText.textContent = collected;
+      totalCheeseText.textContent = totalCheese;
+      message.textContent = "Μάζεψε όλα τα τυριά πριν σε πιάσει το ποντίκι!";
+
+      if (mouseTimer) clearInterval(mouseTimer);
+      mouseTimer = setInterval(moveMouse, 450);
+
+      drawGame();
+    }
+
+    function drawGame() {
+      game.innerHTML = "";
+
+      for (let y = 0; y < maze.length; y++) {
+        for (let x = 0; x < maze[y].length; x++) {
+          const cell = document.createElement("div");
+          cell.classList.add("cell");
+
+          if (maze[y][x] === "#") {
+            cell.classList.add("wall");
+          } else {
+            cell.classList.add("floor");
+          }
+
+          const cheeseHere = cheeses.find(c => c.x === x && c.y === y);
+
+          if (player.x === x && player.y === y) {
+            cell.textContent = "🧍";
+            cell.classList.add("player");
+          } else if (mouse.x === x && mouse.y === y) {
+            cell.textContent = "🐭";
+            cell.classList.add("mouse");
+          } else if (cheeseHere) {
+            cell.textContent = "🧀";
+            cell.classList.add("cheese");
+          }
+
+          game.appendChild(cell);
+        }
+      }
+    }
+
+    document.addEventListener("keydown", function(e) {
+      if (!running) return;
+
+      let newX = player.x;
+      let newY = player.y;
+
+      if (e.key === "ArrowUp") newY--;
+      if (e.key === "ArrowDown") newY++;
+      if (e.key === "ArrowLeft") newX--;
+      if (e.key === "ArrowRight") newX++;
+
+      if (canMove(newX, newY)) {
+        player.x = newX;
+        player.y = newY;
+        collectCheese();
+        checkGameState();
+        drawGame();
+      }
+    });
+
+    function canMove(x, y) {
+      return maze[y] && maze[y][x] !== "#";
+    }
+
+    function collectCheese() {
+      const index = cheeses.findIndex(c => c.x === player.x && c.y === player.y);
+
+      if (index !== -1) {
+        cheeses.splice(index, 1);
+        collected++;
+        cheeseCountText.textContent = collected;
+      }
+    }
+
+    function moveMouse() {
+      if (!running) return;
+
+      const directions = [
+        {x: 0, y: -1},
+        {x: 0, y: 1},
+        {x: -1, y: 0},
+        {x: 1, y: 0}
+      ];
+
+      let bestMove = null;
+      let bestDistance = Infinity;
+
+      directions.forEach(dir => {
+        const nx = mouse.x + dir.x;
+        const ny = mouse.y + dir.y;
+
+        if (canMove(nx, ny)) {
+          const distance = Math.abs(player.x - nx) + Math.abs(player.y - ny);
+
+          if (distance < bestDistance) {
+            bestDistance = distance;
+            bestMove = {x: nx, y: ny};
+          }
+        }
+      });
+
+      if (bestMove) {
+        mouse.x = bestMove.x;
+        mouse.y = bestMove.y;
+      }
+
+      checkGameState();
+      drawGame();
+    }
+
+    function checkGameState() {
+      if (player.x === mouse.x && player.y === mouse.y) {
+        running = false;
+        clearInterval(mouseTimer);
+        message.textContent = "Σε έπιασε το ποντίκι! Πάτα Restart.";
+      }
+
+      if (collected === totalCheese) {
+        running = false;
+        clearInterval(mouseTimer);
+        message.textContent = "Μπράβο! Μάζεψες όλα τα τυριά και κέρδισες!";
+      }
+    }
+
+    startGame();
+  </script>
+
+</body>
+</html>
